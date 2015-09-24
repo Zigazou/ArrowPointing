@@ -1,38 +1,36 @@
 module Main where
 
-import Data.Either (rights)
-import Control.Monad (forM_)
+import System.Directory (getDirectoryContents)
+import Data.String.Utils (startswith, endswith)
+import Data.List (sort)
 
-import Pretty (pretty)
-import Grid (toGrid, arrowPointing)
+import Grid.Grid (Grid, toGrid, arrowPointing, prettyGrid)
 
-validFiles :: [String]
-validFiles = [ "test/valid00.txt"
-             , "test/valid01.txt"
-             , "test/valid02.txt"
-             , "test/valid03.txt"
-             , "test/valid04.txt"
-             ]
+{- |
+Try to find where the arrow is pointing and prints information about the grid.
+-}
+processGrid :: (String, Either String Grid) -> IO ()
+processGrid (filename, Left msg) = putStrLn $ filename ++ ": " ++ msg
+processGrid (filename, Right grid) = do
+    putStrLn filename
+    putStr $ prettyGrid grid
+    case arrowPointing grid of
+        Just v  -> putStrLn ("Solution=" ++ [v])
+        Nothing -> putStrLn "No solution!"
+    putStrLn ""
+
+{- |
+Find valid files in the test directory. File names must start with "valid" and
+end with ".txt".
+-}
+findValidFiles :: IO [FilePath]
+findValidFiles = do
+    filenames <- getDirectoryContents "test"
+    return $ sort $ ("test/" ++) <$> filter validFile filenames
+    where validFile fp = startswith "valid" fp && endswith ".txt" fp
 
 main :: IO ()
 main = do
+    validFiles <- findValidFiles
     sources <- sequence $ readFile <$> validFiles
-    let grids = rights $ toGrid <$> sources
-    forM_ grids $ \grid -> do
-        let prettyGrid = pretty grid
-        print $ length prettyGrid
-        putStr prettyGrid
-        case arrowPointing grid of
-            Just v -> putStrLn $ "Solution=" ++ [v]
-            Nothing -> putStrLn "No solution!"
-        putStrLn ""
-
-{-    
-main :: IO ()
-main = do
-    source <- readFile "test/valid00.txt"
-    let eGrid = toGrid source
-        grid = either (\_ -> error "!!!") id eGrid
-    (putStrLn . pretty) grid
-    (print . arrowPointing) grid
-    -}
+    mapM_ processGrid (zip validFiles (toGrid <$> sources))

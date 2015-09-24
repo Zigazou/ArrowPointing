@@ -15,48 +15,45 @@ import Control.Monad (unless)
 import System.Exit (exitFailure)
 import Data.Either (isLeft, isRight)
 import Test.QuickCheck
-import Test.QuickCheck.Monadic
+import Test.QuickCheck.Monadic (monadicIO, assert, run)
 
-import Pretty (pretty)
-import Grid (toGrid, arrowPointing)
+import Grid.Grid (toGrid, arrowPointing, prettyGridE)
 
 -- Test valid files
-validFiles :: [String]
-validFiles = [ "test/valid00.txt"
-             , "test/valid01.txt"
-             , "test/valid02.txt"
-             , "test/valid03.txt"
-             , "test/valid04.txt"
-             ]
+validFiles :: [ValidFile]
+validFiles =
+    [ ValidFile "test/valid00.txt" "test/pretty-valid00.txt" 'b'
+    , ValidFile "test/valid01.txt" "test/pretty-valid01.txt" 'Q'
+    , ValidFile "test/valid02.txt" "test/pretty-valid02.txt" 'A'
+    , ValidFile "test/valid03.txt" "test/pretty-valid03.txt" 'B'
+    , ValidFile "test/valid04.txt" "test/pretty-valid04.txt" 'Y'
+    , ValidFile "test/valid05.txt" "test/pretty-valid05.txt" 'B'
+    , ValidFile "test/valid06.txt" "test/pretty-valid06.txt" 'E'
+    ]
 
-newtype ValidFile = ValidFile String deriving Show
+data ValidFile = ValidFile String String Char deriving Show
 instance Arbitrary ValidFile where
-    arbitrary = elements $ ValidFile <$> validFiles
+    arbitrary = elements validFiles
 
 prop_validGrid :: ValidFile -> Property
-prop_validGrid (ValidFile fp) = monadicIO $ do
+prop_validGrid (ValidFile fp _ _) = monadicIO $ do
     source <- run $ readFile fp
     assert $ isRight (toGrid source)
 
+-- Tests pretty function
+prop_pretty :: ValidFile -> Property
+prop_pretty (ValidFile fs fp _) = monadicIO $ do
+    source <- run $ readFile fs
+    pretty <- run $ readFile fp
+    assert $ prettyGridE (toGrid source) == (unlines . lines) pretty
+
 -- Test solutions to grids
-validAnswers :: [Maybe Char]
-validAnswers = [ Just 'b'
-               , Just 'Q'
-               , Just 'A'
-               , Just 'B'
-               , Just 'Y'
-               ]
-
-newtype ValidAnswer = ValidAnswer (String, Maybe Char) deriving Show
-instance Arbitrary ValidAnswer where
-    arbitrary = elements $ ValidAnswer <$> zip validFiles validAnswers
-
-prop_validAnswers :: ValidAnswer -> Property
-prop_validAnswers (ValidAnswer (fp, v)) = monadicIO $ do
+prop_validAnswers :: ValidFile -> Property
+prop_validAnswers (ValidFile fp _ v) = monadicIO $ do
     source <- run $ readFile fp
     case toGrid source of
         Left _     -> assert False
-        Right grid -> assert $ arrowPointing grid == v
+        Right grid -> assert $ arrowPointing grid == Just v
 
 -- Tests invalid grids
 invalidFiles :: [String]

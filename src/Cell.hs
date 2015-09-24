@@ -14,8 +14,6 @@ module Cell
 , toCell
 ) where
 
-import Pretty (Pretty, pretty)
-
 {- |
 Direction an `Arrow` may take.
 -}
@@ -36,21 +34,6 @@ data Cell = Start           -- ^ A starting point
           | Value Char      -- ^ A character
           | Empty           -- ^ An empty cell
           deriving (Eq, Show)
-
-{- |
-Use Unicode chars to better draw better a `Cell`.
--}
-instance Pretty Cell where
-    pretty Start = "●"
-    pretty (Line Horizontal) = "─"
-    pretty (Line Vertical) = "│"
-    pretty Crossroad = "┼"
-    pretty (Arrow GoUp) = "▲"
-    pretty (Arrow GoRight) = "▶"
-    pretty (Arrow GoDown) = "▼"
-    pretty (Arrow GoLeft) = "◀"
-    pretty (Value c) = [c]
-    pretty Empty = " "
 
 {- |
 Convert a `Char` to a `Cell`.

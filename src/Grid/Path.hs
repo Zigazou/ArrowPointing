@@ -1,4 +1,3 @@
-{-# LANGUAGE FlexibleInstances #-}
 {- |
 Module      : Grid
 Description : A `Grid` containing arrows to follow.
@@ -8,85 +7,17 @@ Maintainer  : zigazou@free.fr
 Stability   : experimental
 Portability : POSIX
 -}
-module Grid
-( toGrid
-, Coordinate
-, Grid(gWidth, gHeight, gStart, gCells)
-, arrowPointing
-) where
+module Grid.Path (arrowPointing) where
 
-import Data.Array (Array, listArray, assocs, elems, inRange, bounds, (!))
-import Data.List (find, (\\), transpose)
-import Data.List.Split (chunksOf)
-import Data.Maybe (fromJust, listToMaybe, catMaybes)
-import Control.Arrow ((&&&))
+import Data.List ((\\))
+import Data.Maybe (listToMaybe, catMaybes)
 
 import Cell ( Cell (Start, Line, Arrow, Value, Crossroad)
             , Direction (GoUp, GoRight, GoDown, GoLeft)
             , Axis (Horizontal, Vertical)
-            , toCell
             )
 
-import Pretty (Pretty, pretty)
-
-type Coordinate = (Int, Int)
-
-data Grid = Grid { gWidth  :: Int
-                 , gHeight :: Int
-                 , gStart  :: Coordinate
-                 , gCells  :: Array Coordinate Cell
-                 }
-
-{- |
-Verify that a `Coordinate` is valid for a `Grid`.
--}
-inside :: Coordinate -> Grid -> Bool
-inside c g = inRange (bounds $ gCells g) c
-
-{- |
-Return the `Cell` contained at specific `Coordinate`s in a `Grid`.
--}
-at :: Grid -> Coordinate -> Cell
-at g c = gCells g ! c
-
-{- |
-Search for a specific `Cell` in an `Array`.
--}
-arraySearch :: Array Coordinate Cell -> Cell -> Maybe Coordinate
-arraySearch a cell = fst <$> find ((==) cell . snd) (assocs a)
-
-{- |
-Verify a `String` contains a valid problem.
--}
-validateGrid :: String -> Either String String
-validateGrid s
-    | null s                          = Left "Empty string"
-    | any ((/= width ls) . length) ls = Left "Rows with different lengths"
-    | startCounts s == 0              = Left "No start point"
-    | startCounts s > 1               = Left "More than one start point"
-    | otherwise                       = Right s
-    where ls = lines s
-          width = length . head
-          startCounts = length . filter (== 'S')
-
-{- |
-Convert a `String` into a `Grid`.
--}
-toGrid :: String -> Either String Grid
-toGrid s = validateGrid s >> return (Grid width height start cells)
-    where
-        ls = lines s
-        (width, height) = (length . head &&& length) ls
-        cells = toCell <$> listArray ((0, 0), (width - 1, height - 1))
-                                     (concat $ transpose ls)
-        start = fromJust $ arraySearch cells Start
-
-{- |
-Returns the neighbours of a `Cell` in a `Grid`.
--}
-neighbours :: Grid -> Coordinate -> [Coordinate]
-neighbours g (x, y) =
-    filter (`inside` g) [(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)]
+import Grid.Type (Grid (gStart), Coordinate, at, neighbours)
 
 {- |
 Find neighbours around a `Cell` which could make a valid path.
@@ -103,6 +34,7 @@ validPath' :: Cell -- ^ Current cell
            -> Int  -- ^ Difference between x’s of the two cells
            -> Int  -- ^ Difference between y’s of the two cells
            -> Bool
+-- Starting point
 validPath' Start (Line Horizontal) x 0 = x == -1 || x == 1
 validPath' Start (Line Vertical  ) 0 y = y == -1 || y == 1
 
@@ -129,6 +61,7 @@ validPath' (Arrow GoDown ) (Value _)    0    1 = True
 validPath' (Arrow GoLeft ) (Value _) (-1)    0 = True
 validPath' (Arrow GoRight) (Value _)    1    0 = True
 
+-- Everything else is invalid
 validPath' _ _ _ _ = False
 
 {- |
@@ -155,17 +88,3 @@ Search for a `Char` pointed to by an arrow.
 -}
 arrowPointing :: Grid -> Maybe Char
 arrowPointing g = arrowPointing' g [] (gStart g)
-
-{- |
-Instance for `Grid`.
--}
-instance Pretty Grid where
-    pretty g = unlines $ concat <$> pretty
-             <€> transpose (chunksOf (gHeight g) (elems $ gCells g))
-            where (<€>) = (<$>) . (<$>)
-
-{- |
-Make it easier to work with output of the `toGrid` function.
--}
-instance Pretty (Either String Grid) where
-    pretty = either id pretty
